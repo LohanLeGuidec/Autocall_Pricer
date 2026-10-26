@@ -54,7 +54,7 @@ class PricingForm(forms.Form):
     antithetic = forms.BooleanField(label="Variables antithétiques", initial=True, required=False)
 
     # ── Phoenix ──
-    ph_coupon = pct("Coupon annuel (%)", 11, 0, 30)
+    ph_coupon = pct("Coupon annuel (%)", 8, 0, 30)
     ph_recall = pct("Barrière rappel (%)", 100, 50, 130, "1")
     ph_coupon_barrier = pct("Barrière coupon (%)", 80, 30, 120, "1")
     ph_capital = pct("Barrière capital (%)", 60, 20, 100, "1")
@@ -62,7 +62,7 @@ class PricingForm(forms.Form):
     ph_memory = forms.BooleanField(label="Effet mémoire", initial=True, required=False)
 
     # ── Athena ──
-    at_coupon = pct("Coupon par année (%)", 14.0, 0, 30)
+    at_coupon = pct("Coupon par année (%)", 10.0, 0, 30)
     at_recall = pct("Barrière rappel (%)", 100, 50, 130, "1")
     at_capital = pct("Barrière capital (%)", 60, 20, 100, "1")
     at_final = pct("Barrière coupon final (%)", None, 30, 130, "1", required=False,
