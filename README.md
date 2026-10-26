@@ -1,5 +1,7 @@
 # Autocall Pricer
 
+[![tests](https://github.com/LohanLeGuidec/Autocall_Pricer/actions/workflows/tests.yml/badge.svg)](https://github.com/LohanLeGuidec/Autocall_Pricer/actions/workflows/tests.yml)
+
 Valorisation Monte Carlo d'autocalls **Phoenix Memory** et **Athena**, sur un indice ou un **worst-of** de 2 à 3 indices, en **Black-Scholes** ou en **Heston** (volatilité stochastique, **calibrable sur les options cotées**) : fair value, coupon d'équilibre, grecques, sensibilités et impact du skew, dans une application web Django.
 
 *Lohan Le Guidec — Master 2 MBFA, Ingénierie Économique et Financière, Université de Rennes*
