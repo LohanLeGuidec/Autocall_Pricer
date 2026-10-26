@@ -38,7 +38,8 @@ class PricingForm(forms.Form):
                  help_text="Pour le coupon d'équilibre : 100 % − marge de l'émetteur.")
 
     # ── Modèle ──
-    model = forms.ChoiceField(label="Modèle", initial="heston",
+    model = forms.ChoiceField(label="Modèle principal", initial="heston",
+                              help_text="L'autre modèle est toujours calculé pour comparaison.",
                               choices=[("gbm", "Black-Scholes (vol constante)"),
                                        ("heston", "Heston (vol stochastique)")])
     heston_kappa = forms.FloatField(label="κ (retour à la moyenne)", initial=1.5, min_value=0.05, max_value=10)

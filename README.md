@@ -15,12 +15,12 @@ Les autocalls font partie des produits structurés les plus distribués en Europ
 
 | Onglet | Contenu |
 |---|---|
-| Synthèse | Fair value et intervalle de confiance à 95 %, coupon d'équilibre, probabilités de rappel et de perte, durée de vie moyenne, grecques (delta, gamma, vega, rho, sensibilité au spread de crédit) |
+| Synthèse | Fair value et intervalle de confiance à 95 % sous le modèle principal (Heston par défaut) et, sous chaque produit, la comparaison avec l'autre modèle ; coupon d'équilibre, probabilités de rappel et de perte, durée de vie moyenne, grecques (delta, gamma, vega, rho, sensibilité au spread de crédit) |
 | Trajectoires | Trajectoires simulées (performance du plus mauvais sous-jacent), médiane et intervalle 5 %–95 %, barrières ; pour un worst-of, fréquence à laquelle chaque indice est le plus mauvais |
 | Distribution des flux | Valeur actualisée des flux par scénario, pour chaque produit |
 | Rappels & coupons | Probabilité de remboursement par date d'observation, probabilité de coupon (Phoenix) |
 | Sensibilités | Fair value en fonction de la volatilité, du taux, de la barrière de capital, du spread de crédit et, pour un worst-of, de la corrélation |
-| Modèle & skew | Black-Scholes contre Heston à volatilité ATM égale, smile implicite produit par le Heston, lecture de l'effet du skew sur chaque produit |
+| Modèle & skew | Black-Scholes contre Heston à volatilité ATM égale à chaque date, décomposition de la fair value (jambe nominal / jambe coupons, rappels, pertes, coupon d'équilibre), smile implicite produit par le Heston |
 | Méthodologie | Modèle, conventions de payoff et limites |
 
 Dans le panneau **Modèle**, le bouton **« Calibrer sur les options cotées »** ajuste le Heston sur la surface de volatilité de l'indice (S&P 500, Nasdaq 100) et remplit les paramètres du formulaire.
@@ -34,30 +34,30 @@ Sous-jacents : S&P 500, Nasdaq 100, Dow Jones, Euro Stoxx 50, CAC 40, DAX, seuls
 
 ## Résultat principal : l'effet du skew dépend de la structure
 
-On compare Heston et Black-Scholes **à volatilité à la monnaie égale** (le Black-Scholes de référence utilise la volatilité implicite ATM produite par le Heston) : la différence mesure l'effet de la forme du smile, pas de son niveau.
+On compare Heston et Black-Scholes **à volatilité à la monnaie égale à chaque date d'observation** : le Black-Scholes de référence a une volatilité qui dépend du temps et reproduit la structure par terme de la vol ATM du Heston. La différence mesure alors l'effet de la forme du smile (skew et courbure), ni son niveau, ni sa structure par terme.
 
 Exemple : Heston **calibré sur 894 options du S&P 500** (erreur moyenne de 0,6 point de volatilité ; κ = 5,72, ξ = 1,77, ρ = −0,67), taux 4,8 %, spread émetteur 0,8 %, maturité 5 ans, barrières de rappel 100 %, de coupon 80 % et de capital 60 %, coupons de 8 % (Phoenix) et 10 % (Athena), 20 000 trajectoires.
 
 | Effet du skew sur la fair value | Phoenix | Athena |
 |---|---|---|
-| S&P 500 seul | **−0,9 point** | **+0,4 point** |
-| Worst-of S&P 500 / Nasdaq 100 (corrélation 94 %) | **−1,4 point** | **−1,4 point** |
+| S&P 500 seul | **−1,3 point** | **−0,2 point** |
+| Worst-of S&P 500 / Nasdaq 100 (corrélation 94 %) | **−2,2 points** | **−2,2 points** |
 
-La décomposition de la fair value en deux jambes l'explique. La **jambe « nominal »** (le produit sans coupon : remboursement, rappel anticipé et put down-and-in) est commune aux deux produits à barrières identiques ; seule la **jambe coupons** les distingue.
+La décomposition de la fair value en deux jambes l'explique (onglet « Modèle & skew »). La **jambe « nominal »** (le produit sans coupon : remboursement, rappel anticipé et put down-and-in) est commune aux deux produits à barrières identiques ; seule la **jambe coupons** les distingue.
 
-- **Sur un indice seul**, la distribution de Heston est asymétrique à gauche : plus de krachs, mais aussi plus de scénarios juste au-dessus du niveau initial, donc **plus de rappels anticipés** (85 % contre 81 %) et une **durée de vie plus courte** (1,9 an contre 2,3). La jambe nominal gagne 1,1 point (les rappels plus fréquents compensent des pertes plus lourdes). Le Phoenix, qui verse un coupon chaque année, en paie moins (1,5 contre 1,8 en moyenne) : sa jambe coupons perd 2,0 points. L'Athena paie moins d'années de coupons à chaque rappel, mais rappelle plus souvent : sa jambe coupons ne perd que 0,7 point.
-- **Sur un worst-of**, le rappel exige que tous les indices soient au-dessus de la barrière : le skew n'augmente plus les rappels (70 % contre 71 %). C'est l'alourdissement des pertes qui domine (probabilité de perte de 19,4 % contre 19,0 %) : la jambe nominal perd 0,9 point et les deux jambes coupons environ 0,5 point. Les deux produits perdent autant.
+- **Sur un indice seul**, la distribution de Heston est asymétrique à gauche : plus de krachs, mais aussi plus de scénarios juste au-dessus du niveau initial, donc **plus de rappels anticipés** (83,5 % contre 79,4 %) et une **durée de vie plus courte** (1,9 an contre 2,2). La jambe nominal gagne 0,7 point : les rappels plus fréquents compensent des pertes plus lourdes. Le Phoenix, qui verse un coupon chaque année, perd 2,0 points sur sa jambe coupons. L'Athena paie moins d'années de coupons à chaque rappel, mais rappelle plus souvent : sa jambe coupons ne perd que 0,9 point.
+- **Sur un worst-of**, le rappel exige que tous les indices soient au-dessus de la barrière : le skew n'augmente plus les rappels (67,8 % contre 69,6 %). C'est l'alourdissement des pertes qui domine (probabilité de perte de 19,4 % contre 18,1 %) : la jambe nominal perd 1,5 point, les jambes coupons environ 0,7 point, et les deux produits perdent autant.
 
-Conséquence : un pricer à volatilité constante se trompe sur le **coupon d'équilibre**, dans un sens qui dépend de la structure. Pour un prix cible de 98 % :
+Conséquence : un pricer à volatilité constante sous-estime le **coupon d'équilibre**, beaucoup plus pour le Phoenix que pour l'Athena sur un indice seul. Pour un prix cible de 98 % :
 
 | Coupon d'équilibre | Black-Scholes | Heston |
 |---|---|---|
-| Phoenix, S&P 500 seul | 7,4 % | 7,9 % |
-| Athena, S&P 500 seul | 10,3 % | 10,0 % |
-| Phoenix, worst-of | 13,8 % | 15,0 % |
-| Athena, worst-of | 19,1 % | 21,0 % |
+| Phoenix, S&P 500 seul | 7,1 % | 7,9 % |
+| Athena, S&P 500 seul | 9,8 % | 10,0 % |
+| Phoenix, worst-of | 13,2 % | 15,0 % |
+| Athena, worst-of | 18,2 % | 21,0 % |
 
-Ces chiffres dépendent de la calibration du jour et des paramètres du produit ; l'erreur Monte Carlo est de l'ordre de ±0,2 à 0,3 point.
+Ces chiffres dépendent de la calibration du jour et des paramètres du produit ; l'erreur Monte Carlo est de l'ordre de ±0,2 à 0,3 point. Avec ρ = 0 (smile sans skew), l'effet disparaît : c'est bien la pente du smile qui le produit.
 
 ## Calibration du modèle de Heston
 
@@ -89,7 +89,7 @@ Les deux produits acceptent un **step-down** (barrière de rappel décroissante)
 
 - **Black-Scholes** : `S(t+1) = S(t) · exp[(r − q − σ²/2) + σZ]`. Les produits n'étant observés qu'une fois par an, les niveaux annuels sont simulés directement : le schéma est exact.
 - **Heston** : `dS = (r − q)S dt + √v S dW₁`, `dv = κ(θ − v)dt + ξ√v dW₂`, `d⟨W₁, W₂⟩ = ρ dt`. v₀ = σ², θ issu de la structure par terme du VIX (approximation) ou de la calibration sur les options. Schéma d'Euler *full truncation* (Lord et al., 2010), 26 pas par an.
-- **Comparaison des modèles** : le Black-Scholes de référence utilise la volatilité implicite ATM produite par le Heston, pour isoler l'effet du skew de celui du niveau de volatilité.
+- **Comparaison des modèles** : à chaque calcul, les deux modèles sont évalués. Le Black-Scholes de référence reprend la volatilité implicite ATM du Heston à chaque date d'observation (volatilités forward annuelles σ²(t)·t − σ²(t−1)·(t−1)), pour isoler l'effet de la forme du smile de celui du niveau et de la structure par terme de la volatilité. La fair value est décomposée en jambe nominal et jambe coupons.
 - **Worst-of** : chocs corrélés par décomposition de Cholesky, produit observé sur `min(Sᵢ(t)/Sᵢ(0))`.
 - **Contrôle de martingale** (E[S_T] = e^{(r−q)T}) affiché pour chaque sous-jacent.
 - **Actualisation** : taux sans risque + **spread de crédit de l'émetteur** (un autocall est une obligation de la banque).

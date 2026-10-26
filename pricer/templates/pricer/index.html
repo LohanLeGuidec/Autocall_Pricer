@@ -147,6 +147,7 @@
             <div><dt>Rappel anticipé</dt><dd>{{ k.recall }}</dd></div>
             <div><dt>Perte en capital</dt><dd>{{ k.loss }}</dd></div>
           </dl>
+          <p class="compare">{{ k.compare }}</p>
         </div>
         {% endfor %}
       </div>
@@ -214,7 +215,10 @@
         <section class="card">
           <h3>Black-Scholes contre Heston</h3>
           {% include "pricer/partials/table.html" with table=tables.model %}
-          <p class="note">Pour isoler le skew, le Black-Scholes de comparaison utilise la volatilité implicite à la monnaie produite par le Heston : les deux modèles prixent alors identiquement une option à la monnaie, seule la forme du smile diffère. Paramètres Heston : κ = {{ heston.kappa }}, ξ = {{ heston.xi }}, ρ = {{ heston.rho }}, vol long terme / court terme = {{ heston.term_ratio }}.</p>
+          <p class="note">Pour isoler le skew, le Black-Scholes de comparaison reprend la volatilité implicite à la monnaie produite par le Heston <strong>à chaque date d'observation</strong> (volatilité dépendant du temps) : les deux modèles prixent alors identiquement les options à la monnaie de toutes les maturités, seule la forme du smile diffère. Paramètres Heston : κ = {{ heston.kappa }}, ξ = {{ heston.xi }}, ρ = {{ heston.rho }}, vol long terme / court terme = {{ heston.term_ratio }}.</p>
+          <h3 class="subhead">D'où vient l'écart : décomposition de la fair value</h3>
+          {% include "pricer/partials/table.html" with table=tables.legs %}
+          <p class="note">La jambe « nominal » est le produit avec un coupon nul : elle est commune au Phoenix et à l'Athena quand leurs barrières de rappel et de capital sont identiques. La jambe coupons est la différence avec la fair value totale (la valeur est linéaire en coupon).</p>
         </section>
         <section class="card">
           <h3>Smile implicite à maturité</h3>

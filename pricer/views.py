@@ -23,7 +23,7 @@ from autocall_pricer import (
 from . import charts
 from .forms import MAX_UNDERLYINGS, PricingForm
 
-ANALYSIS_VERSION = 2
+ANALYSIS_VERSION = 3
 MARKET_TTL = 3600
 DEFAULT_UNDERLYING = PricingForm.base_fields["underlying_1"].initial
 
@@ -179,9 +179,16 @@ def build_context(out: dict, names: list[str]) -> dict:
     worst_of = len(names) > 1
     underlying_label = "worst-of " + " / ".join(names) if worst_of else names[0]
 
+    mc = out["model_comparison"]
+    main_is_heston = market.model.is_heston
+    other = "gbm_atm" if main_is_heston else "heston"
+    other_label = "Black-Scholes (mêmes vols ATM)" if main_is_heston else "Heston (mêmes vols ATM)"
+
     kpis = []
     for k in keys:
         r = res[k]
+        d = mc[k]["detail"][other]
+        effect = mc[k]["skew_effect"]
         kpis.append({
             "name": charts.NAMES[k], "color": charts.COLORS[k],
             "fv": pct(r["fair_value_pct"]), "ci": pct(r["ci95_pct"], 2),
@@ -190,6 +197,8 @@ def build_context(out: dict, names: list[str]) -> dict:
             "recall": pct(r["early_recall_pct"], 1), "loss": pct(r["loss_pct"], 1),
             "duration": dec(r["avg_duration"]),
             "rich": r["fair_value_pct"] > 100,
+            "compare": f"{other_label} : {pct(d['fair_value'])} · coupon d'équilibre {pct(d['fair_coupon'] * 100)}"
+                       f" · effet du skew {num(effect)} pt",
         })
 
     summary = table(
@@ -223,7 +232,6 @@ def build_context(out: dict, names: list[str]) -> dict:
     )
 
     # ── Modèle & skew ──
-    mc = out["model_comparison"]
     smile = out["smile"]
     atm = smile["atm_vols"]
     atm_label = " / ".join(pct(v * 100, 1) for v in atm)
@@ -233,11 +241,30 @@ def build_context(out: dict, names: list[str]) -> dict:
         [
             [f"Black-Scholes, vol saisie ({input_label})", pct(mc["phoenix"]["gbm_input"]),
              pct(mc["athena"]["gbm_input"])],
-            [f"Black-Scholes, vol ATM équivalente ({atm_label})", pct(mc["phoenix"]["gbm_atm"]),
+            [f"Black-Scholes, vols ATM du Heston à chaque date ({atm_label} à maturité)", pct(mc["phoenix"]["gbm_atm"]),
              pct(mc["athena"]["gbm_atm"])],
-            ["Heston (même vol ATM, avec skew)", pct(mc["phoenix"]["heston"]), pct(mc["athena"]["heston"])],
+            ["Heston (mêmes vols ATM, avec skew)", pct(mc["phoenix"]["heston"]), pct(mc["athena"]["heston"])],
             ["Effet du skew (Heston − BS ATM), en points", num(mc["phoenix"]["skew_effect"]),
              num(mc["athena"]["skew_effect"])],
+        ],
+    )
+    def move(k, field, fmt=dec, scale=1.0):
+        g, h = mc[k]["detail"]["gbm_atm"][field] * scale, mc[k]["detail"]["heston"][field] * scale
+        return f"{fmt(g)} → {fmt(h)} ({num(h - g)})"
+
+    legs_table = table(
+        ["Black-Scholes → Heston", charts.NAMES["phoenix"], charts.NAMES["athena"]],
+        [
+            ["Jambe « nominal » (sans coupon : remboursement, rappel, put)", move("phoenix", "nominal_leg"),
+             move("athena", "nominal_leg")],
+            ["Jambe coupons", move("phoenix", "coupon_leg"), move("athena", "coupon_leg")],
+            ["Rappel anticipé (%)", move("phoenix", "early_recall", lambda x: dec(x, 1)),
+             move("athena", "early_recall", lambda x: dec(x, 1))],
+            ["Perte en capital (%)", move("phoenix", "loss", lambda x: dec(x, 1)),
+             move("athena", "loss", lambda x: dec(x, 1))],
+            ["Durée de vie moyenne (années)", move("phoenix", "duration"), move("athena", "duration")],
+            [f"Coupon d'équilibre (prix cible {dec(out['target_pct'], 1)} %), en %",
+             move("phoenix", "fair_coupon", scale=100), move("athena", "fair_coupon", scale=100)],
         ],
     )
     spec = smile["heston_spec"]
@@ -295,7 +322,7 @@ def build_context(out: dict, names: list[str]) -> dict:
             {"name": n, "sim": dec(f["simulated"], 4), "theo": dec(f["theoretical"], 4)}
             for n, f in zip(names, out["forward_check"])
         ],
-        "tables": {"summary": summary, "greeks": greeks_table, "model": model_table},
+        "tables": {"summary": summary, "greeks": greeks_table, "model": model_table, "legs": legs_table},
         "charts": chart_map,
         "groups": {
             "paths": [(charts.NAMES[k], charts.paths_chart(k, params[k], out["paths_sample"],

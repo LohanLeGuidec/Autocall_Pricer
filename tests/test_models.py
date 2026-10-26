@@ -103,3 +103,41 @@ def test_run_pricing_worst_of_heston():
     assert "correlation" in out["sensitivities"]
     assert out["worst_share"].sum() == pytest.approx(100)
     assert len(out["forward_check"]) == 2
+
+
+# ── Comparaison Heston / Black-Scholes à structure par terme égale ──────────
+
+def test_constant_vol_schedule_matches_constant_vol():
+    flat = simulate_assets(2_000, 3, (0.2,), (0.01,), 0.03, seed=5)
+    sched = simulate_assets(2_000, 3, (0.2,), (0.01,), 0.03, seed=5, vol_schedule=[[0.2]] * 3)
+    np.testing.assert_allclose(flat, sched)
+
+
+def test_vol_schedule_is_a_martingale():
+    a = simulate_assets(200_000, 3, (0.2,), (0.01,), 0.03, seed=2, antithetic=True,
+                        vol_schedule=[[0.15], [0.25], [0.35]])
+    assert a[:, 3, 0].mean() == pytest.approx(np.exp(0.02 * 3), rel=4e-3)
+
+
+def test_benchmark_matches_heston_atm_vol_at_every_date():
+    from autocall_pricer.analytics import atm_vol_term_structure
+
+    m = Market(r=0.03, q=0.01, sigma=0.16, model=replace(HESTON, term_ratio=1.3))
+    out = run_pricing(PhoenixParams(), AthenaParams(), m, n_sim=20_000, with_sensitivities=False)
+    gbm_market = replace(m, model=ModelSpec("gbm"), sigma=out["smile"]["atm_vols"],
+                         sigma_schedule=tuple(map(tuple, atm_vol_term_structure(
+                             simulate(m, SIM), m.r, m.qs)[1])))
+    atm_h, _ = atm_vol_term_structure(simulate(m, SIM), m.r, m.qs)
+    atm_g, _ = atm_vol_term_structure(simulate(gbm_market, SIM), m.r, m.qs)
+    np.testing.assert_allclose(atm_g, atm_h, atol=0.004)
+    assert atm_h[0, 0] < atm_h[-1, 0]          # structure par terme croissante bien reproduite
+
+
+def test_leg_decomposition_is_consistent():
+    m = Market(r=0.03, q=0.01, sigma=0.18, model=HESTON)
+    out = run_pricing(PhoenixParams(), AthenaParams(), m, n_sim=10_000, with_sensitivities=False)
+    for model in ("heston", "gbm_atm"):
+        ph = out["model_comparison"]["phoenix"]["detail"][model]
+        at = out["model_comparison"]["athena"]["detail"][model]
+        assert ph["nominal_leg"] == pytest.approx(at["nominal_leg"])      # mêmes barrières : même jambe
+        assert ph["nominal_leg"] + ph["coupon_leg"] == pytest.approx(ph["fair_value"])

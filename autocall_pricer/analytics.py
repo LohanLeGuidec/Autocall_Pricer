@@ -28,6 +28,8 @@ class Market:
     credit_spread: float = 0.0
     correlation: float = 0.0
     model: ModelSpec = field(default=GBM)
+    # GBM seulement : volatilités forward annuelles ((maturité) × (sous-jacents)), sinon vol constante
+    sigma_schedule: tuple | None = None
 
     @property
     def sigmas(self) -> tuple:
@@ -53,7 +55,7 @@ class SimSettings:
 def simulate(market: Market, sim: SimSettings, vol_shift: float = 0.0) -> np.ndarray:
     """Trajectoires de tous les sous-jacents (n_sim, T + 1, n_assets)."""
     return simulate_assets(sim.n_sim, sim.maturity, market.sigmas, market.qs, market.r, market.correlation,
-                           market.model, sim.seed, sim.antithetic, vol_shift)
+                           market.model, sim.seed, sim.antithetic, vol_shift, market.sigma_schedule)
 
 
 def price(product: str, params, market: Market, perf: np.ndarray, antithetic: bool = True) -> float:
@@ -194,6 +196,23 @@ def atm_implied_vol(terminal: np.ndarray, T: float, r: float, q: float) -> float
     terminal = _match_forward(terminal, forward)
     call = np.exp(-r * T) * np.maximum(terminal - forward, 0).mean()
     return implied_vol(call, 1.0, forward, T, r, q, True)
+
+
+def atm_vol_term_structure(paths: np.ndarray, r: float, qs) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Volatilités implicites ATM forward à chaque date d'observation, pour chaque sous-jacent,
+    à partir de trajectoires simulées (n_sim, T + 1, n_assets), et volatilités forward annuelles
+    correspondantes : σ_fwd(t)² = σ_ATM(t)² t − σ_ATM(t − 1)² (t − 1).
+    Renvoie (atm, forward), deux tableaux (T, n_assets).
+    """
+    T, n_assets = paths.shape[1] - 1, paths.shape[2]
+    atm = np.empty((T, n_assets))
+    for i in range(n_assets):
+        for t in range(1, T + 1):
+            atm[t - 1, i] = atm_implied_vol(paths[:, t, i], t, r, qs[i])
+    total_var = atm**2 * np.arange(1, T + 1)[:, None]
+    fwd_var = np.diff(np.vstack([np.zeros(n_assets), total_var]), axis=0)
+    return atm, np.sqrt(np.maximum(fwd_var, 1e-6))
 
 
 SMILE_STRIKES = np.round(np.arange(0.5, 1.31, 0.05), 2)

@@ -8,7 +8,7 @@ import numpy as np
 from .analytics import (
     Market,
     SimSettings,
-    atm_implied_vol,
+    atm_vol_term_structure,
     fair_coupon,
     greeks,
     implied_smile,
@@ -16,7 +16,7 @@ from .analytics import (
     sensitivities,
     simulate,
 )
-from .products import AthenaParams, PhoenixParams, price_athena, price_phoenix
+from .products import PRICERS, AthenaParams, PhoenixParams, price_athena, price_phoenix
 from .simulation import GBM, ModelSpec, worst_of
 
 N_DISPLAY_PATHS = 100
@@ -45,9 +45,11 @@ def run_pricing(phoenix: PhoenixParams, athena: AthenaParams, market: Market, n_
     }
 
     # ── Impact du skew ──
-    # Heston et GBM ne sont comparables qu'à volatilité à la monnaie égale : sinon on
-    # mesure surtout l'écart de niveau de vol (le vega de l'autocall est fort), pas le skew.
-    # On calcule donc la vol implicite ATM produite par le Heston, puis un GBM à cette vol.
+    # Heston et GBM ne sont comparables qu'à volatilité à la monnaie égale : sinon on mesure
+    # surtout l'écart de niveau de vol (le vega de l'autocall est fort), pas le skew. Comme le
+    # produit est observé chaque année, l'égalité est imposée à CHAQUE date d'observation : le
+    # GBM de référence a une volatilité qui dépend du temps et reproduit la structure par terme
+    # de la vol ATM du Heston. Seule la forme du smile (skew, courbure) diffère alors.
     if market.model.is_heston:
         heston_market, heston_assets, heston_perf = market, assets, perf
         gbm_input_market = replace(market, model=GBM)
@@ -57,18 +59,33 @@ def run_pricing(phoenix: PhoenixParams, athena: AthenaParams, market: Market, n_
         heston_assets = simulate(heston_market, sim)
         heston_perf = worst_of(heston_assets)
         gbm_input_market, gbm_input_perf = market, perf
-    atm_vols = tuple(atm_implied_vol(heston_assets[:, -1, i], T, market.r, q) for i, q in enumerate(market.qs))
-    gbm_atm_market = replace(market, model=GBM, sigma=atm_vols)
+    atm_term, fwd_vols = atm_vol_term_structure(heston_assets, market.r, market.qs)
+    atm_vols = tuple(float(v) for v in atm_term[-1])
+    gbm_atm_market = replace(market, model=GBM, sigma=atm_vols,
+                             sigma_schedule=tuple(map(tuple, fwd_vols)))
     gbm_atm_perf = worst_of(simulate(gbm_atm_market, sim))
     model_comparison = {}
     for k in params:
-        heston_fv = price(k, params[k], heston_market, heston_perf, antithetic)
-        gbm_atm_fv = price(k, params[k], gbm_atm_market, gbm_atm_perf, antithetic)
+        no_coupon = replace(params[k], coupon_rate=0.0)
+        by_model = {}
+        for name, mkt, pf in (("heston", heston_market, heston_perf), ("gbm_atm", gbm_atm_market, gbm_atm_perf)):
+            stats = PRICERS[k](pf, params[k], mkt.r, mkt.credit_spread, antithetic)
+            nominal_leg = price(k, no_coupon, mkt, pf, antithetic)
+            by_model[name] = {
+                "fair_value": stats["fair_value_pct"],
+                "fair_coupon": fair_coupon(k, params[k], mkt, pf, target_pct, antithetic),
+                "nominal_leg": nominal_leg,
+                "coupon_leg": stats["fair_value_pct"] - nominal_leg,
+                "early_recall": stats["early_recall_pct"],
+                "loss": stats["loss_pct"],
+                "duration": stats["avg_duration"],
+            }
         model_comparison[k] = {
             "gbm_input": price(k, params[k], gbm_input_market, gbm_input_perf, antithetic),
-            "gbm_atm": gbm_atm_fv,
-            "heston": heston_fv,
-            "skew_effect": heston_fv - gbm_atm_fv,
+            "gbm_atm": by_model["gbm_atm"]["fair_value"],
+            "heston": by_model["heston"]["fair_value"],
+            "skew_effect": by_model["heston"]["fair_value"] - by_model["gbm_atm"]["fair_value"],
+            "detail": by_model,
         }
     strikes, heston_vols = implied_smile(heston_assets[:, -1, 0], T, market.r, market.qs[0])
 
@@ -82,7 +99,7 @@ def run_pricing(phoenix: PhoenixParams, athena: AthenaParams, market: Market, n_
         "fair_coupons": {k: fair_coupon(k, params[k], market, perf, target_pct, antithetic) for k in params},
         "model_comparison": model_comparison,
         "smile": {"strikes": strikes, "heston": heston_vols, "gbm": market.sigmas[0],
-                  "atm_vols": atm_vols, "heston_spec": heston_market.model},
+                  "atm_vols": atm_vols, "atm_term": atm_term, "heston_spec": heston_market.model},
         "worst_share": worst_share,
         "paths_sample": perf[:N_DISPLAY_PATHS],
         "paths_quantiles": {

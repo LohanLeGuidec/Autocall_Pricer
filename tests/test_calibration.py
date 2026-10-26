@@ -186,3 +186,11 @@ def test_fetch_option_quotes_parses_a_yahoo_chain(monkeypatch):
 def test_calibrate_button_on_home(client, fake_market):
     html = client.get("/").content.decode()
     assert 'id="calibrate-btn"' in html and "Calibrer sur les options cotées" in html
+
+
+def test_summary_shows_model_comparison(client, fake_market):
+    from tests.test_django import PARAMS
+
+    html = client.get("/", {**PARAMS, "model": "heston"}).content.decode()
+    assert "Black-Scholes (mêmes vols ATM)" in html and "effet du skew" in html
+    assert "Jambe coupons" in html and "à chaque date d" in html

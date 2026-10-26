@@ -77,10 +77,15 @@ def simulate_assets(
     seed: int | None = None,
     antithetic: bool = False,
     vol_shift: float = 0.0,
+    vol_schedule=None,
 ) -> np.ndarray:
     """
     Performances des sous-jacents (niveau initial = 1) aux dates d'observation annuelles.
     Renvoie un tableau (n_simulations, maturity + 1, n_assets).
+
+    `vol_schedule` (GBM uniquement) : volatilités forward annuelles, tableau (maturity, n_assets).
+    L'année t utilise la volatilité vol_schedule[t − 1] : c'est un Black-Scholes à volatilité
+    déterministe dépendant du temps, qui reproduit une structure par terme de vol ATM donnée.
     """
     sigmas = np.atleast_1d(np.asarray(sigmas, dtype=float)) + vol_shift
     qs = np.broadcast_to(np.atleast_1d(np.asarray(qs, dtype=float)), sigmas.shape)
@@ -95,10 +100,16 @@ def simulate_assets(
     log_s = np.zeros((n_simulations, n_assets))
 
     if not model.is_heston:
-        drift = r - qs - 0.5 * sigmas**2
+        if vol_schedule is None:
+            schedule = np.tile(sigmas, (maturity, 1))
+        else:
+            schedule = np.asarray(vol_schedule, dtype=float).reshape(maturity, n_assets) + vol_shift
+            if np.any(schedule <= 0):
+                raise ValueError("Volatilité forward négative ou nulle.")
         for t in range(1, maturity + 1):
+            sig = schedule[t - 1]
             z = _normals(rng, n_simulations, n_assets, antithetic) @ chol.T
-            log_s += drift + sigmas * z
+            log_s += (r - qs - 0.5 * sig**2) + sig * z
             out[:, t, :] = np.exp(log_s)
         return out
 
