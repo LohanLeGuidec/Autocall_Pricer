@@ -1,0 +1,260 @@
+{% extends "pricer/base.html" %}
+
+{% block body %}
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">◆</span>
+      <div>
+        <h1>Autocall Pricer</h1>
+        <p>Phoenix Memory &amp; Athena · Monte Carlo</p>
+      </div>
+    </div>
+
+    <form method="get" action="{% url 'index' %}" id="analysis-form" novalidate>
+      {% if form.non_field_errors %}<div class="alert alert-error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+
+      <fieldset>
+        <legend>Sous-jacents</legend>
+        <div class="underlyings" data-market-url="{% url 'market_data' %}" data-corr-url="{% url 'correlation' %}">
+          <div class="row-3 head"><span>Indice</span><span>Vol (%)</span><span>Div. (%)</span></div>
+          {% for u, s, q in underlying_rows %}
+          <div class="row-3{% if u.errors or s.errors or q.errors %} has-error{% endif %}" data-row="{{ forloop.counter }}">
+            {{ u }}{{ s }}{{ q }}
+          </div>
+          {% for e in u.errors %}<p class="error">{{ e }}</p>{% endfor %}
+          {% for e in s.errors %}<p class="error">{{ e }}</p>{% endfor %}
+          {% endfor %}
+        </div>
+        <p class="help">Plusieurs sous-jacents : le produit porte sur le plus mauvais (worst-of).</p>
+        <p class="market-hint" id="market-hint">
+          {% if market_sources %}Spot <strong>{{ market_spot|floatformat:"2g" }}</strong> · vol : {{ market_sources.sigma }} · structure par terme : {{ market_sources.term_ratio }} · taux : {{ market_sources.r }}{% endif %}
+        </p>
+        <div id="corr-field"{% if not form.underlying_2.value and not form.underlying_3.value %} hidden{% endif %}>
+          {% include "pricer/partials/field.html" with field=form.correlation %}
+          <p class="market-hint" id="corr-hint"></p>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Marché</legend>
+        <div class="row-2">
+          {% include "pricer/partials/field.html" with field=form.r %}
+          {% include "pricer/partials/field.html" with field=form.maturity %}
+        </div>
+        {% include "pricer/partials/field.html" with field=form.credit_spread %}
+        {% include "pricer/partials/field.html" with field=form.target %}
+      </fieldset>
+
+      <fieldset>
+        <legend>Modèle</legend>
+        {% include "pricer/partials/field.html" with field=form.model %}
+        <div id="heston-params"{% if form.model.value == "gbm" %} hidden{% endif %}>
+          <div class="row-2">
+            {% include "pricer/partials/field.html" with field=form.heston_kappa %}
+            {% include "pricer/partials/field.html" with field=form.heston_xi %}
+          </div>
+          <div class="row-2">
+            {% include "pricer/partials/field.html" with field=form.heston_rho %}
+            {% include "pricer/partials/field.html" with field=form.term_ratio %}
+          </div>
+          <button type="button" class="btn btn-secondary btn-block" id="calibrate-btn"
+                  data-calib-url="{% url 'calibration' %}">Calibrer sur les options cotées</button>
+          <p class="market-hint" id="calib-hint">Ajuste v₀, θ, κ, ξ et ρ sur la surface de volatilité de l'indice 1 (S&amp;P 500, Nasdaq 100).</p>
+        </div>
+      </fieldset>
+
+      <details class="product" open>
+        <summary><span class="dot" style="background:#2F6FB3"></span>Phoenix Memory</summary>
+        <div class="row-2">
+          {% include "pricer/partials/field.html" with field=form.ph_coupon %}
+          {% include "pricer/partials/field.html" with field=form.ph_recall %}
+        </div>
+        <div class="row-2">
+          {% include "pricer/partials/field.html" with field=form.ph_coupon_barrier %}
+          {% include "pricer/partials/field.html" with field=form.ph_capital %}
+        </div>
+        {% include "pricer/partials/field.html" with field=form.ph_step_down %}
+        {% include "pricer/partials/check.html" with field=form.ph_memory %}
+      </details>
+
+      <details class="product" open>
+        <summary><span class="dot" style="background:#1D8A66"></span>Athena</summary>
+        <div class="row-2">
+          {% include "pricer/partials/field.html" with field=form.at_coupon %}
+          {% include "pricer/partials/field.html" with field=form.at_recall %}
+        </div>
+        <div class="row-2">
+          {% include "pricer/partials/field.html" with field=form.at_capital %}
+          {% include "pricer/partials/field.html" with field=form.at_final %}
+        </div>
+        {% include "pricer/partials/field.html" with field=form.at_step_down %}
+      </details>
+
+      <details class="advanced"{% if form.errors %} open{% endif %}>
+        <summary>Simulation</summary>
+        <div class="row-2">
+          {% include "pricer/partials/field.html" with field=form.n_sim %}
+          {% include "pricer/partials/field.html" with field=form.seed %}
+        </div>
+        {% include "pricer/partials/check.html" with field=form.antithetic %}
+      </details>
+
+      <button type="submit" class="btn btn-primary btn-block">Pricer</button>
+    </form>
+
+    <footer class="sidebar-footer">
+      Lohan Le Guidec — Master 2 MBFA<br>Ingénierie Économique et Financière — Université de Rennes
+    </footer>
+  </aside>
+
+  <main class="main">
+    <div class="loading" id="loading" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Simulation Monte Carlo en cours…</p>
+    </div>
+
+    {% if error %}<div class="alert alert-error"><strong>Erreur de calcul.</strong> {{ error }}</div>{% endif %}
+
+    {% if not computed %}
+      <section class="empty">
+        <h2>Valorisation d'autocalls par simulation Monte Carlo</h2>
+        <p>Phoenix Memory et Athena sur un indice ou un worst-of de 2 à 3 indices (S&amp;P 500, Nasdaq 100, Dow Jones, Euro Stoxx 50, CAC 40, DAX), en Black-Scholes ou en Heston : fair value, coupon d'équilibre, grecques, sensibilités et impact du skew.</p>
+        <p class="muted">Les paramètres de marché sont préremplis avec des données indicatives. Ajustez les caractéristiques des produits à gauche, puis lancez le pricing.</p>
+      </section>
+    {% else %}
+
+      <header class="results-header">
+        <h2>Résultats</h2>
+        <p class="meta">
+          <strong>{{ underlying_label }}</strong> · {{ model_name }} · maturité {{ maturity }} ans<br>
+          σ {{ market.sigma }} · q {{ market.q }}{% if worst_of %} · corrélation {{ market.correlation }}{% endif %} · r {{ market.r }} · spread {{ market.spread }}<br>
+          {{ n_sim }} trajectoires{% if antithetic %} (variables antithétiques){% endif %} · contrôle de martingale E[S<sub>T</sub>] simulé / théorique :
+          {% for f in forward %}{{ f.name }} {{ f.sim }} / {{ f.theo }}{% if not forloop.last %} · {% endif %}{% endfor %}
+        </p>
+      </header>
+
+      <div class="kpis two">
+        {% for k in kpis %}
+        <div class="kpi" style="--accent: {{ k.color }}">
+          <h3>{{ k.name }}{% if k.rich %}<span class="badge">au-dessus du pair</span>{% endif %}</h3>
+          <div class="fv">{{ k.fv }}<small>± {{ k.ci }} (IC 95 %)</small></div>
+          <dl class="wide">
+            <div><dt>Coupon proposé</dt><dd>{{ k.coupon }}</dd></div>
+            <div><dt>Coupon d'équilibre</dt><dd>{{ k.fair_coupon }}</dd></div>
+            <div><dt>Durée moyenne</dt><dd>{{ k.duration }} ans</dd></div>
+            <div><dt>Rappel anticipé</dt><dd>{{ k.recall }}</dd></div>
+            <div><dt>Perte en capital</dt><dd>{{ k.loss }}</dd></div>
+          </dl>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="note">Fair value : valeur actuelle des flux versés à l'investisseur, en % du nominal, hors frais. Le coupon d'équilibre est celui qui ramène la fair value au prix cible (100 % − marge de l'émetteur).</p>
+
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="summary" aria-selected="true">Synthèse</button>
+        <button role="tab" data-tab="paths">Trajectoires</button>
+        <button role="tab" data-tab="payoffs">Distribution des flux</button>
+        <button role="tab" data-tab="recalls">Rappels &amp; coupons</button>
+        <button role="tab" data-tab="sensi">Sensibilités</button>
+        <button role="tab" data-tab="model">Modèle &amp; skew</button>
+        <button role="tab" data-tab="method">Méthodologie</button>
+      </nav>
+
+      <section class="tab-panel" data-panel="summary">
+        <section class="card"><h3>Comparaison des deux produits</h3>{% include "pricer/partials/table.html" with table=tables.summary %}</section>
+        <section class="card">
+          <h3>Grecques</h3>
+          {% include "pricer/partials/table.html" with table=tables.greeks %}
+          <p class="note">Différences finies centrées, mêmes tirages aléatoires pour chaque choc. Un vega négatif signifie que l'investisseur est vendeur de volatilité : il a vendu à l'émetteur une put à barrière sur le sous-jacent, rémunérée par les coupons.</p>
+        </section>
+      </section>
+
+      <section class="tab-panel" data-panel="paths" hidden>
+        <section class="card">
+          <h3>Trajectoires simulées et barrières</h3>
+          {% include "pricer/partials/chart_group.html" with group=groups.paths %}
+          <p class="note">100 trajectoires sur {{ n_sim }}, médiane et intervalle 5 %–95 %, en % du niveau initial{% if worst_of %} du plus mauvais des sous-jacents à chaque date{% endif %}. Observations annuelles.</p>
+        </section>
+        {% if worst_of %}
+        <section class="card">
+          <h3>Quel sous-jacent est le plus mauvais à maturité ?</h3>
+          {% include "pricer/partials/chart.html" with json=charts.worst_share %}
+          <p class="note">Le plus souvent, c'est le sous-jacent le plus volatil ou celui qui verse le plus de dividendes (sa dérive risque-neutre r − q est plus faible) : c'est lui qui pilote le risque du worst-of.</p>
+        </section>
+        {% endif %}
+      </section>
+
+      <section class="tab-panel" data-panel="payoffs" hidden>
+        <section class="card">
+          <h3>Valeur actualisée des flux par scénario</h3>
+          {% include "pricer/partials/chart.html" with json=charts.payoffs %}
+          <p class="note">La masse à droite correspond aux rappels avec coupons ; la queue à gauche, aux scénarios où le sous-jacent finit sous la barrière de capital (perte proportionnelle à sa baisse).</p>
+        </section>
+      </section>
+
+      <section class="tab-panel" data-panel="recalls" hidden>
+        <section class="card"><h3>Probabilité de remboursement par date d'observation</h3>{% include "pricer/partials/chart.html" with json=charts.recalls %}</section>
+        <section class="card"><h3>Phoenix : probabilité de versement d'un coupon</h3>{% include "pricer/partials/chart.html" with json=charts.coupons %}</section>
+      </section>
+
+      <section class="tab-panel" data-panel="sensi" hidden>
+        <div class="grid-2">
+          <section class="card"><h3>Volatilité</h3>{% include "pricer/partials/chart.html" with json=charts.sensi_sigma %}</section>
+          <section class="card"><h3>Taux sans risque</h3>{% include "pricer/partials/chart.html" with json=charts.sensi_r %}</section>
+          <section class="card"><h3>Barrière de capital</h3>{% include "pricer/partials/chart.html" with json=charts.sensi_capital %}</section>
+          <section class="card"><h3>Spread de crédit de l'émetteur</h3>{% include "pricer/partials/chart.html" with json=charts.sensi_spread %}</section>
+          {% if worst_of %}<section class="card"><h3>Corrélation entre sous-jacents</h3>{% include "pricer/partials/chart.html" with json=charts.sensi_corr %}<p class="note">Plus la corrélation est faible, plus il est probable qu'un des sous-jacents décroche : le worst-of vaut moins, et l'émetteur peut payer un coupon plus élevé.</p></section>{% endif %}
+        </div>
+        <p class="note">Chaque point est recalculé avec les mêmes tirages aléatoires : les courbes reflètent l'effet du paramètre, pas le bruit Monte Carlo.</p>
+      </section>
+
+      <section class="tab-panel" data-panel="model" hidden>
+        <section class="card">
+          <h3>Black-Scholes contre Heston</h3>
+          {% include "pricer/partials/table.html" with table=tables.model %}
+          <p class="note">Pour isoler le skew, le Black-Scholes de comparaison utilise la volatilité implicite à la monnaie produite par le Heston : les deux modèles prixent alors identiquement une option à la monnaie, seule la forme du smile diffère. Paramètres Heston : κ = {{ heston.kappa }}, ξ = {{ heston.xi }}, ρ = {{ heston.rho }}, vol long terme / court terme = {{ heston.term_ratio }}.</p>
+        </section>
+        <section class="card">
+          <h3>Smile implicite à maturité</h3>
+          {% include "pricer/partials/chart.html" with json=charts.smile %}
+          <p class="note">Volatilités implicites Black-Scholes des options européennes de maturité {{ maturity }} ans, calculées sur les trajectoires Heston{% if skew_90_110 %} : écart de {{ skew_90_110 }} pts entre les strikes 90 % et 110 %{% endif %}. En Black-Scholes, le smile est plat.</p>
+        </section>
+        <section class="card method">
+          <h3>Lecture</h3>
+          <p><strong>Phoenix ({{ skew_effect.phoenix }} pt).</strong> L'investisseur est vendeur d'une put down-and-in de barrière basse. Avec le skew, la volatilité implicite des strikes bas est plus élevée : cette put vaut plus cher, donc le produit vaut moins pour l'investisseur. Un pricer à volatilité constante surestime la fair value et donc le coupon que l'émetteur peut servir.</p>
+          <p><strong>Athena ({{ skew_effect.athena }} pt).</strong> L'effet est plus ambigu. Les gros coupons cumulés ne sont payés qu'au-dessus de la barrière de rappel : c'est une option digitale à la monnaie, que le skew rend plus probable (une distribution asymétrique à gauche a une médiane plus haute). Ce gain compense en partie, voire entièrement, le coût plus élevé de la put à barrière.</p>
+          <p>Conclusion : le skew ne se résume pas à « le produit vaut moins » ; son effet dépend de la structure. C'est pour cela que les desks pricent les autocalls avec un modèle à volatilité locale ou stochastique calibré sur la surface de volatilité.</p>
+        </section>
+      </section>
+
+      <section class="tab-panel method" data-panel="method" hidden>
+        <section class="card">
+          <h3>Modèle et conventions</h3>
+          <h4>Dynamique des sous-jacents</h4>
+          <p><strong>Black-Scholes</strong> : mouvement brownien géométrique sous la probabilité risque-neutre, <code>S(t+1) = S(t) · exp[(r − q − σ²/2) + σ·Z]</code>. Les produits n'étant observés qu'aux dates anniversaires, les niveaux annuels sont simulés directement : le schéma est exact.</p>
+          <p><strong>Heston</strong> : <code>dS = (r − q)·S·dt + √v·S·dW₁</code>, <code>dv = κ(θ − v)·dt + ξ·√v·dW₂</code>, corrélation ρ entre W₁ et W₂. Avec ρ &lt; 0, la volatilité monte quand le marché baisse, ce qui crée le skew. v₀ = σ² ; θ est fixé par la structure par terme (VIX 1 an / VIX 30 jours pour le S&amp;P 500). Schéma d'Euler « full truncation » (Lord et al., 2010), 26 pas par an.</p>
+          <h4>Worst-of</h4>
+          <p>Avec 2 ou 3 sous-jacents, les chocs de prix sont corrélés par décomposition de Cholesky. Le produit est observé sur la performance du plus mauvais : <code>min(S₁/S₁(0), S₂/S₂(0), S₃/S₃(0))</code>. La corrélation est préremplie à partir de 2 ans de rendements hebdomadaires (les rendements quotidiens la sous-estiment entre places dont les séances ne se recouvrent pas).</p>
+          <h4>Phoenix Memory</h4>
+          <p>À chaque date, si le sous-jacent est au-dessus de la barrière de coupon, le coupon est versé immédiatement, avec rattrapage des coupons manqués (effet mémoire). Au-dessus de la barrière de rappel, le nominal est remboursé. À maturité : nominal si le sous-jacent est au-dessus de la barrière de capital, sinon nominal × S(T)/S(0). Les coupons déjà versés restent acquis.</p>
+          <h4>Athena</h4>
+          <p>Aucun flux avant le rappel. Au rappel en année t : nominal × (1 + coupon × t). À maturité : coupons complets au-dessus de la barrière finale ; nominal seul entre la barrière de capital et la barrière finale ; nominal × S(T)/S(0) en dessous.</p>
+          <h4>Actualisation et risque émetteur</h4>
+          <p>Les flux sont actualisés au taux sans risque augmenté du spread de crédit de l'émetteur : un autocall est une obligation de la banque, exposée à son défaut.</p>
+          <h4>Précision</h4>
+          <p>Intervalle de confiance à 95 % de l'estimateur Monte Carlo ; variables antithétiques (chaque tirage Z est associé à −Z) pour réduire la variance. Le coupon d'équilibre est exact : sur des trajectoires données, la valeur des deux produits est affine en coupon.</p>
+          <h4>Limites</h4>
+          <ul>
+            <li><strong>Heston non calibré</strong> : κ, ξ et ρ sont des valeurs typiques d'indices actions, pas le résultat d'une calibration sur la surface de volatilité cotée. Le Heston reproduit mal le skew très court terme ; un desk utiliserait une volatilité locale ou locale-stochastique.</li>
+            <li><strong>Données de marché indicatives</strong> : volatilité implicite à 30 jours ou historique, taux et dividendes approximatifs, corrélation historique (la corrélation implicite est en général plus élevée en période de stress).</li>
+            <li>Corrélation identique entre toutes les paires, sans effet de change (quanto) pour un worst-of multi-devises, dividende continu, spread de crédit constant.</li>
+          </ul>
+        </section>
+      </section>
+
+    {% endif %}
+  </main>
+</div>
+{% endblock %}

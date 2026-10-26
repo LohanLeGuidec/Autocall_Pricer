@@ -1,0 +1,14 @@
+{% load static %}<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Autocall Pricer{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'pricer/style.css' %}?v=3">
+  <script src="{% url 'plotly_js' %}" defer></script>
+  <script src="{% static 'pricer/app.js' %}?v=3" defer></script>
+</head>
+<body>
+  {% block body %}{% endblock %}
+</body>
+</html>

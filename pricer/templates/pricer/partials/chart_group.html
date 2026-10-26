@@ -1,0 +1,12 @@
+<div class="chart-group">
+  <label class="inline-select">{{ label|default:"Produit" }}
+    <select data-group-select>
+      {% for name, json in group %}<option value="{{ forloop.counter0 }}">{{ name }}</option>{% endfor %}
+    </select>
+  </label>
+  {% for name, json in group %}
+  <div class="group-item" data-index="{{ forloop.counter0 }}"{% if not forloop.first %} hidden{% endif %}>
+    {% include "pricer/partials/chart.html" with json=json %}
+  </div>
+  {% endfor %}
+</div>

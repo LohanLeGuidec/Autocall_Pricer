@@ -1,5 +1,19 @@
+# Python
 __pycache__/
 *.pyc
-.env
 *.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Environnements et secrets
 .venv/
+venv/
+.env
+
+# Django
+.cache/
+staticfiles/
+
+# Vidéos de démonstration (hébergées via le README GitHub, pas dans le dépôt)
+*.mp4
+*.mov

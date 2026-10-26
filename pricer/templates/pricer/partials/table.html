@@ -1,0 +1,10 @@
+<div class="table-wrap">
+  <table class="data">
+    <thead><tr>{% for c in table.columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for row in table.rows %}
+      <tr>{% for cell in row %}{% if forloop.first and table.first_col_label %}<th scope="row">{{ cell }}</th>{% else %}<td>{{ cell }}</td>{% endif %}{% endfor %}</tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
