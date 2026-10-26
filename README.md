@@ -28,13 +28,18 @@ Dans le panneau **Modèle**, le bouton **« Calibrer sur les options cotées »*
 Sous-jacents : S&P 500, Nasdaq 100, Dow Jones, Euro Stoxx 50, CAC 40, DAX, seuls ou en worst-of. Les paramètres de marché sont **préremplis avec des données indicatives** (Yahoo Finance) et restent modifiables :
 
 - volatilité implicite à 30 jours (VIX, VXN, VXD) ou, à défaut, historique sur 1 an ;
-- **structure par terme** de la volatilité (VIX 1 an / VIX 30 jours), qui fixe la variance de long terme du Heston ;
+- **structure par terme** de la volatilité (VIX 1 an / VIX 30 jours), qui sert d'approximation de la variance de long terme du Heston (sous Heston, la variance implicite à 1 an n'est qu'une moyenne entre v₀ et θ : la calibration sur les options est plus rigoureuse) ;
 - **corrélation** estimée sur 2 ans de rendements **hebdomadaires** (les rendements quotidiens la sous-estiment entre places dont les séances ne se recouvrent pas) ;
 - taux 5 ans américain, dividendes moyens.
 
 ## Résultat principal : le skew n'a pas le même effet sur les deux produits
 
-À volatilité à la monnaie égale, passer de Black-Scholes à Heston (ρ = −0,7) **baisse la fair value du Phoenix** d'environ 1,5 à 2,5 points : l'investisseur est vendeur d'une put down-and-in de barrière basse, plus chère avec le skew. **L'Athena bouge beaucoup moins, voire monte** : ses gros coupons cumulés ne sont payés qu'au-dessus de la barrière de rappel, une option digitale à la monnaie que le skew rend plus probable. Un pricer à volatilité constante surestime donc le coupon que l'émetteur peut servir sur un Phoenix.
+À volatilité à la monnaie égale, passer de Black-Scholes à Heston (ρ = −0,7) **baisse la fair value du Phoenix** d'environ 1,5 point sur un indice seul et de plus de 3 points sur un worst-of de deux indices (paramètres par défaut, κ = 1,5, ξ = 0,5). **L'Athena bouge beaucoup moins.** La décomposition de la fair value en deux jambes l'explique :
+
+- **Jambe « nominal »** (le produit sans coupon : remboursement, rappel anticipé et put down-and-in) : elle est **identique pour les deux produits**. Avec le skew, les pertes sous la barrière de capital sont plus lourdes, mais le rappel anticipé est plus fréquent ; l'effet net est faible sur un indice seul (+0,4 point) et négatif en worst-of (−1,2 point).
+- **Jambe coupons** : c'est elle qui fait toute la différence. Avec ρ < 0, la distribution est asymétrique à gauche : plus de krachs, mais aussi plus de scénarios juste au-dessus du niveau initial, donc **plus de rappels anticipés** (82 % contre 76 % sur le S&P 500) et une **durée de vie plus courte** (2,1 ans contre 2,4). Le Phoenix, qui verse un coupon chaque année au-dessus de 80 %, en paie moins (1,6 contre 1,9 en moyenne) : sa jambe coupons perd environ 2 points. L'Athena ne paie ses coupons cumulés qu'au rappel : elle en verse moins par rappel, mais plus souvent, et sa jambe coupons ne perd que 0,3 point.
+
+Un pricer à volatilité constante surévalue donc le Phoenix et **sous-estime son coupon d'équilibre** : pour un prix cible de 98 %, environ 5,5 % par an sous Black-Scholes contre 6,1 % sous Heston sur le S&P 500 (σ = 18 %).
 
 ## Calibration du modèle de Heston
 
