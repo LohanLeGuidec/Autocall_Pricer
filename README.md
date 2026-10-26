@@ -32,14 +32,32 @@ Sous-jacents : S&P 500, Nasdaq 100, Dow Jones, Euro Stoxx 50, CAC 40, DAX, seuls
 - **corrélation** estimée sur 2 ans de rendements **hebdomadaires** (les rendements quotidiens la sous-estiment entre places dont les séances ne se recouvrent pas) ;
 - taux 5 ans américain, dividendes moyens.
 
-## Résultat principal : le skew n'a pas le même effet sur les deux produits
+## Résultat principal : l'effet du skew dépend de la structure
 
-À volatilité à la monnaie égale, passer de Black-Scholes à Heston (ρ = −0,7) **baisse la fair value du Phoenix** d'environ 1,5 point sur un indice seul et de plus de 3 points sur un worst-of de deux indices (paramètres par défaut, κ = 1,5, ξ = 0,5). **L'Athena bouge beaucoup moins.** La décomposition de la fair value en deux jambes l'explique :
+On compare Heston et Black-Scholes **à volatilité à la monnaie égale** (le Black-Scholes de référence utilise la volatilité implicite ATM produite par le Heston) : la différence mesure l'effet de la forme du smile, pas de son niveau.
 
-- **Jambe « nominal »** (le produit sans coupon : remboursement, rappel anticipé et put down-and-in) : elle est **identique pour les deux produits**. Avec le skew, les pertes sous la barrière de capital sont plus lourdes, mais le rappel anticipé est plus fréquent ; l'effet net est faible sur un indice seul (+0,4 point) et négatif en worst-of (−1,2 point).
-- **Jambe coupons** : c'est elle qui fait toute la différence. Avec ρ < 0, la distribution est asymétrique à gauche : plus de krachs, mais aussi plus de scénarios juste au-dessus du niveau initial, donc **plus de rappels anticipés** (82 % contre 76 % sur le S&P 500) et une **durée de vie plus courte** (2,1 ans contre 2,4). Le Phoenix, qui verse un coupon chaque année au-dessus de 80 %, en paie moins (1,6 contre 1,9 en moyenne) : sa jambe coupons perd environ 2 points. L'Athena ne paie ses coupons cumulés qu'au rappel : elle en verse moins par rappel, mais plus souvent, et sa jambe coupons ne perd que 0,3 point.
+Exemple : Heston **calibré sur 894 options du S&P 500** (erreur moyenne de 0,6 point de volatilité ; κ = 5,72, ξ = 1,77, ρ = −0,67), taux 4,8 %, spread émetteur 0,8 %, maturité 5 ans, barrières de rappel 100 %, de coupon 80 % et de capital 60 %, coupons de 8 % (Phoenix) et 10 % (Athena), 20 000 trajectoires.
 
-Un pricer à volatilité constante surévalue donc le Phoenix et **sous-estime son coupon d'équilibre** : pour un prix cible de 98 %, environ 5,5 % par an sous Black-Scholes contre 6,1 % sous Heston sur le S&P 500 (σ = 18 %).
+| Effet du skew sur la fair value | Phoenix | Athena |
+|---|---|---|
+| S&P 500 seul | **−0,9 point** | **+0,4 point** |
+| Worst-of S&P 500 / Nasdaq 100 (corrélation 94 %) | **−1,4 point** | **−1,4 point** |
+
+La décomposition de la fair value en deux jambes l'explique. La **jambe « nominal »** (le produit sans coupon : remboursement, rappel anticipé et put down-and-in) est commune aux deux produits à barrières identiques ; seule la **jambe coupons** les distingue.
+
+- **Sur un indice seul**, la distribution de Heston est asymétrique à gauche : plus de krachs, mais aussi plus de scénarios juste au-dessus du niveau initial, donc **plus de rappels anticipés** (85 % contre 81 %) et une **durée de vie plus courte** (1,9 an contre 2,3). La jambe nominal gagne 1,1 point (les rappels plus fréquents compensent des pertes plus lourdes). Le Phoenix, qui verse un coupon chaque année, en paie moins (1,5 contre 1,8 en moyenne) : sa jambe coupons perd 2,0 points. L'Athena paie moins d'années de coupons à chaque rappel, mais rappelle plus souvent : sa jambe coupons ne perd que 0,7 point.
+- **Sur un worst-of**, le rappel exige que tous les indices soient au-dessus de la barrière : le skew n'augmente plus les rappels (70 % contre 71 %). C'est l'alourdissement des pertes qui domine (probabilité de perte de 19,4 % contre 19,0 %) : la jambe nominal perd 0,9 point et les deux jambes coupons environ 0,5 point. Les deux produits perdent autant.
+
+Conséquence : un pricer à volatilité constante se trompe sur le **coupon d'équilibre**, dans un sens qui dépend de la structure. Pour un prix cible de 98 % :
+
+| Coupon d'équilibre | Black-Scholes | Heston |
+|---|---|---|
+| Phoenix, S&P 500 seul | 7,4 % | 7,9 % |
+| Athena, S&P 500 seul | 10,3 % | 10,0 % |
+| Phoenix, worst-of | 13,8 % | 15,0 % |
+| Athena, worst-of | 19,1 % | 21,0 % |
+
+Ces chiffres dépendent de la calibration du jour et des paramètres du produit ; l'erreur Monte Carlo est de l'ordre de ±0,2 à 0,3 point.
 
 ## Calibration du modèle de Heston
 
@@ -70,7 +88,7 @@ Les deux produits acceptent un **step-down** (barrière de rappel décroissante)
 ## Méthodologie
 
 - **Black-Scholes** : `S(t+1) = S(t) · exp[(r − q − σ²/2) + σZ]`. Les produits n'étant observés qu'une fois par an, les niveaux annuels sont simulés directement : le schéma est exact.
-- **Heston** : `dS = (r − q)S dt + √v S dW₁`, `dv = κ(θ − v)dt + ξ√v dW₂`, `d⟨W₁, W₂⟩ = ρ dt`. v₀ = σ², θ issu de la structure par terme. Schéma d'Euler *full truncation* (Lord et al., 2010), 26 pas par an.
+- **Heston** : `dS = (r − q)S dt + √v S dW₁`, `dv = κ(θ − v)dt + ξ√v dW₂`, `d⟨W₁, W₂⟩ = ρ dt`. v₀ = σ², θ issu de la structure par terme du VIX (approximation) ou de la calibration sur les options. Schéma d'Euler *full truncation* (Lord et al., 2010), 26 pas par an.
 - **Comparaison des modèles** : le Black-Scholes de référence utilise la volatilité implicite ATM produite par le Heston, pour isoler l'effet du skew de celui du niveau de volatilité.
 - **Worst-of** : chocs corrélés par décomposition de Cholesky, produit observé sur `min(Sᵢ(t)/Sᵢ(0))`.
 - **Contrôle de martingale** (E[S_T] = e^{(r−q)T}) affiché pour chaque sous-jacent.
@@ -96,7 +114,7 @@ Puis ouvrir http://127.0.0.1:8000. Aucune base de données n'est nécessaire.
 pytest
 ```
 
-Les payoffs sont testés sur des **trajectoires construites à la main** dont le résultat se calcule de tête (effet mémoire, coupons conservés après une perte, step-down, coupon final de l'Athena…), ainsi que le caractère martingale du GBM et du Heston, la convergence du Heston vers le GBM quand ξ → 0, le skew produit par ρ < 0, la corrélation simulée, la monotonie du worst-of en corrélation, le coupon d'équilibre et le signe des grecques. Les tests n'utilisent pas le réseau.
+Les payoffs sont testés sur des **trajectoires construites à la main** dont le résultat se calcule de tête (effet mémoire, coupons conservés après une perte, step-down, coupon final de l'Athena…), ainsi que le caractère martingale du GBM et du Heston, la convergence du Heston vers le GBM quand ξ → 0, le skew produit par ρ < 0, la corrélation simulée, la monotonie du worst-of en corrélation, le coupon d'équilibre et le signe des grecques, ainsi que la formule semi-fermée de Heston (contre le Monte Carlo et contre Black-Scholes) et la calibration sur une surface synthétique. Les tests n'utilisent pas le réseau.
 
 ## Structure
 
