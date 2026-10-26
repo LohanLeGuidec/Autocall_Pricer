@@ -3,7 +3,7 @@ Calibration du modèle de Heston sur des options vanilles cotées.
 
 Pourquoi : dans le pricer, κ, ξ et ρ sont des valeurs typiques d'indices actions. Ici on
 les choisit pour que le Heston reproduise au mieux les prix d'options observés sur le
-marché (la surface de volatilité implicite), comme le ferait un desk.
+marché (la surface de volatilité implicite).
 
 1. Prix d'un call européen sous Heston par formule semi-fermée : transformée de Fourier
    de la fonction caractéristique de ln S_T, dans la forme « little Heston trap »
