@@ -240,7 +240,7 @@
           <h3>Modèle et conventions</h3>
           <h4>Dynamique des sous-jacents</h4>
           <p><strong>Black-Scholes</strong> : mouvement brownien géométrique sous la probabilité risque-neutre, <code>S(t+1) = S(t) · exp[(r − q − σ²/2) + σ·Z]</code>. Les produits n'étant observés qu'aux dates anniversaires, les niveaux annuels sont simulés directement : le schéma est exact.</p>
-          <p><strong>Heston</strong> : <code>dS = (r − q)·S·dt + √v·S·dW₁</code>, <code>dv = κ(θ − v)·dt + ξ·√v·dW₂</code>, corrélation ρ entre W₁ et W₂. Avec ρ &lt; 0, la volatilité monte quand le marché baisse, ce qui crée le skew. v₀ = σ² ; θ est fixé par la structure par terme (VIX 1 an / VIX 30 jours pour le S&amp;P 500). Schéma d'Euler « full truncation » (Lord et al., 2010), 26 pas par an.</p>
+          <p><strong>Heston</strong> : <code>dS = (r − q)·S·dt + √v·S·dW₁</code>, <code>dv = κ(θ − v)·dt + ξ·√v·dW₂</code>, corrélation ρ entre W₁ et W₂. Avec ρ &lt; 0, la volatilité monte quand le marché baisse, ce qui crée le skew. v₀ = σ² ; θ est fixé par la structure par terme (VIX 1 an / VIX 30 jours pour le S&amp;P 500), ou, avec le bouton « Calibrer sur les options cotées », v₀, θ, κ, ξ et ρ sont ajustés sur la surface de volatilité de l'indice (formule semi-fermée de Heston, moindres carrés pondérés par 1/vega). Schéma d'Euler « full truncation » (Lord et al., 2010), 26 pas par an.</p>
           <h4>Worst-of</h4>
           <p>Avec 2 ou 3 sous-jacents, les chocs de prix sont corrélés par décomposition de Cholesky. Le produit est observé sur la performance du plus mauvais : <code>min(S₁/S₁(0), S₂/S₂(0), S₃/S₃(0))</code>. La corrélation est préremplie à partir de 2 ans de rendements hebdomadaires (les rendements quotidiens la sous-estiment entre places dont les séances ne se recouvrent pas).</p>
           <h4>Phoenix Memory</h4>
@@ -253,7 +253,7 @@
           <p>Intervalle de confiance à 95 % de l'estimateur Monte Carlo ; variables antithétiques (chaque tirage Z est associé à −Z) pour réduire la variance. Le coupon d'équilibre est exact : sur des trajectoires données, la valeur des deux produits est affine en coupon.</p>
           <h4>Limites</h4>
           <ul>
-            <li><strong>Heston non calibré</strong> : κ, ξ et ρ sont des valeurs typiques d'indices actions, pas le résultat d'une calibration sur la surface de volatilité cotée. Le Heston reproduit mal le skew très court terme ; un desk utiliserait une volatilité locale ou locale-stochastique.</li>
+            <li><strong>Heston</strong> : la calibration sur les options cotées n'est disponible que pour le S&amp;P 500 et le Nasdaq 100 (ailleurs, κ, ξ et ρ sont des valeurs typiques, ou une surface est importée en CSV), et seul le premier sous-jacent d'un worst-of est calibré. Un Heston à paramètres constants reproduit mal le skew très court terme ; un desk utiliserait une volatilité locale ou locale-stochastique.</li>
             <li><strong>Données de marché indicatives</strong> : volatilité implicite à 30 jours ou historique, taux et dividendes approximatifs, corrélation historique (la corrélation implicite est en général plus élevée en période de stress).</li>
             <li>Corrélation identique entre toutes les paires, sans effet de change (quanto) pour un worst-of multi-devises, dividende continu, spread de crédit constant.</li>
           </ul>

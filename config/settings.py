@@ -48,8 +48,8 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Pas de base de données : l'application ne stocke rien, elle calcule.
 DATABASES = {}
 
-# Les résultats d'analyse sont mis en cache sur disque (1 h) : relancer la même
-# analyse, ouvrir l'onglet Black-Litterman ou exporter un CSV ne retélécharge rien.
+# Résultats de pricing, données de marché et calibrations mis en cache sur disque (1 h) :
+# relancer le même calcul ne refait ni la simulation ni les téléchargements Yahoo Finance.
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",

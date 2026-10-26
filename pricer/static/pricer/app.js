@@ -37,16 +37,16 @@
         const panel = document.querySelector(`.tab-panel[data-panel="${btn.dataset.tab}"]`);
         renderVisibleCharts(panel);
         resizeCharts(panel);
-        try { sessionStorage.setItem("po-tab", btn.dataset.tab); } catch (e) { /* stockage indisponible */ }
+        try { sessionStorage.setItem("autocall-tab", btn.dataset.tab); } catch (e) { /* stockage indisponible */ }
       });
     });
     let saved = null;
-    try { saved = sessionStorage.getItem("po-tab"); } catch (e) { /* stockage indisponible */ }
+    try { saved = sessionStorage.getItem("autocall-tab"); } catch (e) { /* stockage indisponible */ }
     const target = saved && document.querySelector(`.tabs [data-tab="${saved}"]`);
     if (target) target.click();
   }
 
-  // ── Sélecteur de portefeuille dans un groupe de graphiques ──
+  // ── Sélecteur de produit dans un groupe de graphiques ──
   function initGroups() {
     document.querySelectorAll("[data-group-select]").forEach((select) => {
       select.addEventListener("change", () => {
@@ -66,67 +66,17 @@
     const loading = document.getElementById("loading");
     if (!form || !loading) return;
     form.addEventListener("submit", () => {
-      try { sessionStorage.removeItem("po-tab"); } catch (e) { /* stockage indisponible */ }
+      try { sessionStorage.removeItem("autocall-tab"); } catch (e) { /* stockage indisponible */ }
       loading.hidden = false;
     });
     // Retour arrière du navigateur : ne pas rester bloqué sur l'écran de chargement
     window.addEventListener("pageshow", () => { loading.hidden = true; });
   }
 
-  // ── Black-Litterman ──
-  function initBlackLitterman() {
-    const form = document.getElementById("bl-form");
-    if (!form) return;
-
-    const custom = document.getElementById("custom-weights");
-    form.querySelectorAll('input[name="ref"]').forEach((radio) => {
-      radio.addEventListener("change", () => { custom.hidden = form.ref.value !== "custom"; });
-    });
-
-    const conf = document.getElementById("confidence");
-    const confOut = document.getElementById("conf-out");
-    const showConf = () => { confOut.textContent = Number(conf.value).toFixed(2).replace(".", ","); };
-    conf.addEventListener("input", showConf);
-    showConf();
-
-    const views = document.getElementById("views");
-    document.getElementById("add-view").addEventListener("click", () => {
-      const rows = views.querySelectorAll(".view-row");
-      if (rows.length >= 10) return;
-      const clone = rows[rows.length - 1].cloneNode(true);
-      views.appendChild(clone);
-    });
-    views.addEventListener("click", (event) => {
-      const btn = event.target.closest("[data-remove-view]");
-      if (!btn) return;
-      if (views.querySelectorAll(".view-row").length > 1) btn.closest(".view-row").remove();
-    });
-
-    const result = document.getElementById("bl-result");
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const submit = form.querySelector('button[type="submit"]');
-      submit.disabled = true;
-      submit.textContent = "Calcul en cours…";
-      try {
-        const response = await fetch(form.action, { method: "POST", body: new FormData(form) });
-        result.innerHTML = await response.text();
-        renderVisibleCharts(result);
-        result.scrollIntoView({ behavior: "smooth", block: "start" });
-      } catch (err) {
-        result.innerHTML = '<div class="alert alert-error">Erreur réseau : réessayez.</div>';
-      } finally {
-        submit.disabled = false;
-        submit.textContent = "Calculer Black-Litterman";
-      }
-    });
-  }
-
   document.addEventListener("DOMContentLoaded", () => {
     initTabs();
     initGroups();
     initLoading();
-    initBlackLitterman();
     renderVisibleCharts();
   });
 })();
