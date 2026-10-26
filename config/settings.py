@@ -6,6 +6,7 @@ fichier .env à la racine du projet) :
     DJANGO_SECRET_KEY, DJANGO_DEBUG, DJANGO_ALLOWED_HOSTS
 """
 import os
+import tempfile
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -50,10 +51,13 @@ DATABASES = {}
 
 # Résultats de pricing, données de marché et calibrations mis en cache sur disque (1 h) :
 # relancer le même calcul ne refait ni la simulation ni les téléchargements Yahoo Finance.
+# Le cache vit dans le dossier temporaire du système, hors du projet : un dossier synchronisé
+# (OneDrive, Dropbox) verrouille les fichiers et empêche Django de purger les entrées expirées.
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
-        "LOCATION": BASE_DIR / ".cache" / "django",
+        "LOCATION": os.environ.get("AUTOCALL_CACHE_DIR",
+                                   str(Path(tempfile.gettempdir()) / "autocall_pricer_cache")),
         "TIMEOUT": 3600,
         "OPTIONS": {"MAX_ENTRIES": 200},
     }
