@@ -2,7 +2,9 @@
 
 [![tests](https://github.com/LohanLeGuidec/Autocall_Pricer/actions/workflows/tests.yml/badge.svg)](https://github.com/LohanLeGuidec/Autocall_Pricer/actions/workflows/tests.yml)
 
-![Autocall Pricer : worst-of S&P 500 / Nasdaq 100 sous Heston calibré, comparaison avec Black-Scholes à vol ATM égale](docs/apercu.png)
+
+https://github.com/user-attachments/assets/fc8f13dc-d42f-4d1c-94c4-f857405b270a
+
 
 Valorisation Monte Carlo d'autocalls **Phoenix Memory** et **Athena**, sur un indice ou un **worst-of** de 2 à 3 indices, en **Black-Scholes** ou en **Heston** (volatilité stochastique, **calibrable sur les options cotées**) : fair value, coupon d'équilibre, grecques, sensibilités et impact du skew, dans une application web Django.
 
