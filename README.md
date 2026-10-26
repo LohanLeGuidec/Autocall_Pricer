@@ -2,6 +2,8 @@
 
 [![tests](https://github.com/LohanLeGuidec/Autocall_Pricer/actions/workflows/tests.yml/badge.svg)](https://github.com/LohanLeGuidec/Autocall_Pricer/actions/workflows/tests.yml)
 
+![Autocall Pricer : worst-of S&P 500 / Nasdaq 100 sous Heston calibré, comparaison avec Black-Scholes à vol ATM égale](docs/apercu.png)
+
 Valorisation Monte Carlo d'autocalls **Phoenix Memory** et **Athena**, sur un indice ou un **worst-of** de 2 à 3 indices, en **Black-Scholes** ou en **Heston** (volatilité stochastique, **calibrable sur les options cotées**) : fair value, coupon d'équilibre, grecques, sensibilités et impact du skew, dans une application web Django.
 
 *Lohan Le Guidec — Master 2 MBFA, Ingénierie Économique et Financière, Université de Rennes*
@@ -38,26 +40,26 @@ Sous-jacents : S&P 500, Nasdaq 100, Dow Jones, Euro Stoxx 50, CAC 40, DAX, seuls
 
 On compare Heston et Black-Scholes **à volatilité à la monnaie égale à chaque date d'observation** : le Black-Scholes de référence a une volatilité qui dépend du temps et reproduit la structure par terme de la vol ATM du Heston. La différence mesure alors l'effet de la forme du smile (skew et courbure), ni son niveau, ni sa structure par terme.
 
-Exemple : Heston **calibré sur 894 options du S&P 500** (erreur moyenne de 0,6 point de volatilité ; κ = 5,72, ξ = 1,77, ρ = −0,67), taux 4,8 %, spread émetteur 0,8 %, maturité 5 ans, barrières de rappel 100 %, de coupon 80 % et de capital 60 %, coupons de 8 % (Phoenix) et 10 % (Athena), 20 000 trajectoires.
+Exemple, avec les chiffres de la démonstration ci-dessus (**26 octobre 2026**) : Heston **calibré sur 897 options du S&P 500** (erreur quadratique moyenne de 1,05 point de volatilité ; κ = 5,12, ξ = 1,57, ρ = −0,67, vol long terme / court terme = 1,27), taux 4,82 %, spread émetteur 0,8 %, maturité 5 ans, barrières de rappel 100 %, de coupon 80 % et de capital 60 %, coupons de 8 % (Phoenix) et 10 % (Athena), 20 000 trajectoires.
 
 | Effet du skew sur la fair value | Phoenix | Athena |
 |---|---|---|
-| S&P 500 seul | **−1,3 point** | **−0,2 point** |
-| Worst-of S&P 500 / Nasdaq 100 (corrélation 94 %) | **−2,2 points** | **−2,2 points** |
+| S&P 500 seul | **−1,17 point** | **−0,18 point** |
+| Worst-of S&P 500 / Nasdaq 100 (corrélation 94 %) | **−2,34 points** | **−2,37 points** |
 
 La décomposition de la fair value en deux jambes l'explique (onglet « Modèle & skew »). La **jambe « nominal »** (le produit sans coupon : remboursement, rappel anticipé et put down-and-in) est commune aux deux produits à barrières identiques ; seule la **jambe coupons** les distingue.
 
-- **Sur un indice seul**, la distribution de Heston est asymétrique à gauche : plus de krachs, mais aussi plus de scénarios juste au-dessus du niveau initial, donc **plus de rappels anticipés** (83,5 % contre 79,4 %) et une **durée de vie plus courte** (1,9 an contre 2,2). La jambe nominal gagne 0,7 point : les rappels plus fréquents compensent des pertes plus lourdes. Le Phoenix, qui verse un coupon chaque année, perd 2,0 points sur sa jambe coupons. L'Athena paie moins d'années de coupons à chaque rappel, mais rappelle plus souvent : sa jambe coupons ne perd que 0,9 point.
-- **Sur un worst-of**, le rappel exige que tous les indices soient au-dessus de la barrière : le skew n'augmente plus les rappels (67,8 % contre 69,6 %). C'est l'alourdissement des pertes qui domine (probabilité de perte de 19,4 % contre 18,1 %) : la jambe nominal perd 1,5 point, les jambes coupons environ 0,7 point, et les deux produits perdent autant.
+- **Sur un indice seul**, la distribution de Heston est asymétrique à gauche : plus de krachs, mais aussi plus de scénarios juste au-dessus du niveau initial, donc **plus de rappels anticipés** (83,4 % contre 79,4 %) et une **durée de vie plus courte** (1,94 an contre 2,22). La jambe nominal gagne 0,7 point : les rappels plus fréquents compensent des pertes plus lourdes (probabilité de perte de 6,2 % contre 5,5 %). Le Phoenix, qui verse un coupon chaque année, perd 1,9 point sur sa jambe coupons. L'Athena paie moins d'années de coupons à chaque rappel, mais rappelle plus souvent : sa jambe coupons ne perd que 0,9 point.
+- **Sur un worst-of**, le rappel exige que tous les indices soient au-dessus de la barrière : le skew n'augmente plus les rappels, il les réduit même légèrement (68,6 % contre 70,3 %). C'est l'alourdissement des pertes qui domine (probabilité de perte de 18,4 % contre 16,7 %) : la jambe nominal perd 1,6 point, les jambes coupons environ 0,7 point, et les deux produits perdent autant.
 
 Conséquence : un pricer à volatilité constante sous-estime le **coupon d'équilibre**, beaucoup plus pour le Phoenix que pour l'Athena sur un indice seul. Pour un prix cible de 98 % :
 
 | Coupon d'équilibre | Black-Scholes | Heston |
 |---|---|---|
-| Phoenix, S&P 500 seul | 7,1 % | 7,9 % |
-| Athena, S&P 500 seul | 9,8 % | 10,0 % |
-| Phoenix, worst-of | 13,2 % | 15,0 % |
-| Athena, worst-of | 18,2 % | 21,0 % |
+| Phoenix, S&P 500 seul | 7,15 % | 7,86 % |
+| Athena, S&P 500 seul | 9,86 % | 10,01 % |
+| Phoenix, worst-of | 12,42 % | 14,35 % |
+| Athena, worst-of | 17,21 % | 20,10 % |
 
 Ces chiffres dépendent de la calibration du jour et des paramètres du produit ; l'erreur Monte Carlo est de l'ordre de ±0,2 à 0,3 point. Avec ρ = 0 (smile sans skew), l'effet disparaît : c'est bien la pente du smile qui le produit.
 
