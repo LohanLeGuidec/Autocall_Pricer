@@ -54,7 +54,7 @@ La décomposition de la fair value en deux jambes l'explique (onglet « Modèle 
 - **Sur un indice seul**, la distribution de Heston est asymétrique à gauche : plus de krachs, mais aussi plus de scénarios juste au-dessus du niveau initial, donc **plus de rappels anticipés** (83,4 % contre 79,4 %) et une **durée de vie plus courte** (1,94 an contre 2,22). La jambe nominal gagne 0,7 point : les rappels plus fréquents compensent des pertes plus lourdes (probabilité de perte de 6,2 % contre 5,5 %). Le Phoenix, qui verse un coupon chaque année, perd 1,9 point sur sa jambe coupons. L'Athena paie moins d'années de coupons à chaque rappel, mais rappelle plus souvent : sa jambe coupons ne perd que 0,9 point.
 - **Sur un worst-of**, le rappel exige que tous les indices soient au-dessus de la barrière : le skew n'augmente plus les rappels, il les réduit même légèrement (68,6 % contre 70,3 %). C'est l'alourdissement des pertes qui domine (probabilité de perte de 18,4 % contre 16,7 %) : la jambe nominal perd 1,6 point, les jambes coupons environ 0,7 point, et les deux produits perdent autant.
 
-Conséquence : un pricer à volatilité constante sous-estime le **coupon d'équilibre**, beaucoup plus pour le Phoenix que pour l'Athena sur un indice seul. Pour un prix cible de 98 % :
+Conséquence : un pricer sans skew sous-estime le **coupon d'équilibre**, beaucoup plus pour le Phoenix que pour l'Athena sur un indice seul. Pour un prix cible de 98 % :
 
 | Coupon d'équilibre | Black-Scholes | Heston |
 |---|---|---|
